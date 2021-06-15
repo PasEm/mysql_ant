@@ -1,0 +1,28 @@
+benchmark:
+  client:
+    count: 5
+    max: 5
+    step: 5
+  transaction:
+    count: 10000
+    max: 10000
+    step: 30000
+  time:
+    count: 10
+    max: 10
+    step: 10
+  execution:
+    maxTime: 10000
+    timeout: 300
+    parallel: true
+  script:
+    name: src/main/resources/scripts/test.sql
+  report:
+    path: ./reports
+    name: report.html
+
+mysql:
+  username: user1
+  password: qwerty007
+  driverName: com.mysql.cj.jdbc.Driver
+  url: jdbc:mysql://localhost:3306/load_test

@@ -1,0 +1,1 @@
+select * from load_test.t1 where id < 10;

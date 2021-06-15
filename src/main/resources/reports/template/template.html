@@ -1,0 +1,214 @@
+<head>
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+    <title>MySQL Benchmark Results</title>
+</head>
+<body>
+<script>
+    isTimeMode = '{{mode}}' === 'TIME'
+    rows = {{json reports}}
+    let zAxisText = isTimeMode ? 'time' : 'transactions';
+
+    function generatePlotlyData(yAxis, metricData, clientCount) {
+        return {
+            type: "scatter3d",
+            mode: "lines+markers",
+            x: clients,
+            y: metricData,
+            z: isTimeMode ? time : transactions,
+            marker: {
+                size: 2,
+                sizemode: "area"
+            },
+            name: "Test with " + clientCount + " clients",
+            hoverinfo: "text",
+            hovertemplate:
+                "clients: %{x}" +
+                "<br>" + yAxis + ": %{y}" +
+                "<br>" + zAxisText + ": %{z}" +
+                "<extra></extra>"
+        }
+    }
+
+    function generatePlotly3DGraphic(id, title, data, metricName) {
+        return Plotly.newPlot(id, {
+                data: data,
+                layout: {
+                    title: title,
+                    autosize: true,
+                    height: 760,
+                    width: 1440,
+                    scene: {
+                        aspectratio: {
+                            x: 1,
+                            y: 1,
+                            z: 1
+                        },
+                        camera: {
+                            center: {
+                                x: 0,
+                                y: 0,
+                                z: 0
+                            },
+                            eye: {
+                                x: 1.25,
+                                y: 1.25,
+                                z: 1.25
+                            },
+                            up: {
+                                x: 0,
+                                y: 0,
+                                z: 1
+                            }
+                        },
+                        xaxis: {
+                            type: 'linear',
+                            zeroline: false,
+                            title: "clients"
+                        },
+                        yaxis: {
+                            type: 'linear',
+                            zeroline: false,
+                            title: metricName
+                        },
+                        zaxis: {
+                            type: 'linear',
+                            zeroline: false,
+                            title: zAxisText
+                        }
+                    }
+                },
+                config: {responsive: true}
+            }
+        );
+    }
+
+    function processNewLine() {
+        dataTps.push(generatePlotlyData("tps", tps, previousClientCount));
+        dataLatency.push(generatePlotlyData("latency", latency, previousClientCount));
+        dataTransactionsExceededMaxExecuteTime.push(generatePlotlyData("count", transactionsExceededMaxExecutionTime, previousClientCount));
+        dataOps.push(generatePlotlyData("ops", ops, previousClientCount));
+        dataIos.push(generatePlotlyData("ios", ios, previousClientCount));
+        dataCurrentMemory.push(generatePlotlyData("memory", currentMemory, previousClientCount));
+        dataTotalMemory.push(generatePlotlyData("memory", totalMemory, previousClientCount));
+        dataSchemaLatency.push(generatePlotlyData("latency", performanceLatency, previousClientCount));
+        dataTableScan.push(generatePlotlyData("table scans", tableScans, previousClientCount));
+    }
+
+    function clearArrays() {
+        clients = [];
+        transactions = [];
+        transactionsExceededMaxExecutionTime = [];
+        time = [];
+        tps = [];
+        latency = [];
+        currentMemory = [];
+        totalMemory = [];
+        performanceLatency = [];
+        ios = [];
+        ops = [];
+        tableScans = [];
+    }
+
+    let clients = [],
+        tps = [],
+        transactions = [],
+        transactionsExceededMaxExecutionTime = [],
+        latency = [],
+        time = [],
+        ios = [],
+        currentMemory = [],
+        totalMemory = [],
+        performanceLatency = [],
+        ops = [],
+        tableScans = [];
+
+    let dataTps = [],
+        dataLatency = [],
+        dataTransactionsExceededMaxExecuteTime = [],
+        dataOps = [],
+        dataIos = [],
+        dataCurrentMemory = [],
+        dataTotalMemory = [],
+        dataSchemaLatency = [],
+        dataTableScan = [];
+
+    let previousClientCount = 0;
+    for (let i = 0; i < rows.length; i++) {
+        let row = rows[i];
+        let performanceResult = row["performanceResult"];
+        let clientsCount = row["clients"];
+        previousClientCount = previousClientCount === 0 ? clientsCount : previousClientCount;
+
+        if (previousClientCount !== clientsCount) {
+            processNewLine();
+            previousClientCount = clientsCount;
+            clearArrays();
+        }
+
+        clients.push(clientsCount);
+        transactions.push(row["transactions"])
+        time.push(row["time"]);
+
+        tps.push(row["tps"]);
+        latency.push(row["latency"]);
+        transactionsExceededMaxExecutionTime.push(row["transactionsExceededMaxExecuteTime"]);
+        currentMemory.push(performanceResult["currentMemory"]);
+        totalMemory.push(performanceResult["totalMemory"]);
+        performanceLatency.push(performanceResult["latency"]);
+        ios.push(performanceResult["ios"]);
+        ops.push(performanceResult["ops"]);
+        tableScans.push(performanceResult["tableScans"]);
+    }
+    processNewLine();
+    clearArrays();
+</script>
+<div id="benchmark_results">
+    <div id='benchmark_tps' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('benchmark_tps', 'TPS graphic', dataTps, 'Transactions per seconds');
+        </script>
+    </div>
+    <div id='benchmark_latency' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('benchmark_latency', 'Latency graphic', dataLatency, 'Latency in ms');
+        </script>
+    </div>
+    <div id='benchmark_transactions_exceeded_max_execution_time' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('benchmark_transactions_exceeded_max_execution_time', 'Transactions exceeded max execution time graphic', dataTransactionsExceededMaxExecuteTime, 'Transactions exceeded max execution time');
+        </script>
+    </div>
+</div>
+<div id="performance_schema_results">
+    <div id='performance_schema_ops' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_ops', 'Database operations per second graphic by Performance Schema', dataOps, 'Statements per second');
+        </script>
+    </div>
+    <div id='performance_schema_ios' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_ios', 'Database I/Os graphic by Performance Schema', dataIos, 'I/Os operations per second');
+        </script>
+    </div>
+    <div id='performance_schema_current_memory' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_current_memory', 'Database current memory graphic by Performance Schema', dataCurrentMemory, 'Current memory in KiB');
+        </script>
+    </div>
+    <div id='performance_schema_total_memory' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_total_memory', 'Database total memory graphic by Performance Schema', dataTotalMemory, 'Total memory in KiB');
+        </script>
+    </div>
+    <div id='performance_schema_latency' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_latency', 'Database latency graphic by Performance Schema', dataSchemaLatency, 'Latency in ms');
+        </script>
+    </div>
+    <div id='performance_schema_no_index_usage' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_no_index_usage', 'Database table scan usage graphic by Performance Schema', dataTableScan, 'Table scans usage count');
+        </script>
+    </div>
+</div>
+</body>
