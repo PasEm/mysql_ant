@@ -1,16 +1,11 @@
 package ru.itis.mysqlant.service.benchmark;
 
-import java.security.SecureRandom;
 import java.sql.Connection;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import ru.itis.mysqlant.condition.TransactionModeCondition;
 import ru.itis.mysqlant.configuration.BenchmarkConfiguration;
@@ -30,14 +25,12 @@ import lombok.extern.slf4j.Slf4j;
 @Conditional(TransactionModeCondition.class)
 public class TransactionBenchmarkExecutionService implements BenchmarkExecutionService {
 
-    private final static Random RANDOM = new SecureRandom();
-
     private final BenchmarkConfiguration benchmark;
 
     private final ResultService resultService;
     private final ScriptService scriptService;
     private final UserService userService;
-    private final ExecutorService executorService;
+    private final ExecutorFactoryService executorFactoryService;
 
     @Override
     public void executeIntegrationTest(int clients) {
@@ -51,71 +44,61 @@ public class TransactionBenchmarkExecutionService implements BenchmarkExecutionS
         ) {
             log.info("Create new test with {} clients, {} transactions", clients, transactions);
             User user = userService.createUser();
+            ExecutorService executorService = executorFactoryService.createExecutorService(Runtime.getRuntime().availableProcessors());
             List<Connection> connections = new ArrayList<>();
             long latencyTime = getLatency(clients, connections);
 
             String resultId = resultService.createNewResult(clients, transactions, 0L, latencyTime, user);
-            int transactionsPerUser = transactions / clients;
-            int transactionsExceededMaxExecutionTime = 0;
-            long totalExecutionTime = 0;
-
-            Map<Connection, Integer> userTransactions = createUserTransactions(connections, transactionsPerUser);
-            List<Callable<Long>> tasks = new ArrayList<>();
-
-            while (!userTransactions.isEmpty()) {
-                int currentClient = RANDOM.nextInt(connections.size());
-                Connection connection = connections.get(currentClient);
-                Callable<Long> runScriptTask = createTask(connection);
-                tasks.add(runScriptTask);
-                int previousValue = userTransactions.get(connection);
-                if (previousValue == 1) {
-                    userTransactions.remove(connection);
-                    connections.remove(currentClient);
-                } else {
-                    userTransactions.replace(connection, --previousValue);
-                }
-            }
+            AtomicLong executionTime = new AtomicLong(latencyTime);
+            AtomicInteger transactionsExceededMaxExecutionTime = new AtomicInteger(0);
+            AtomicInteger transactionCounter = new AtomicInteger(0);
+            int transactionCount = transactions;
 
             try {
-                List<Future<Long>> resultList = executorService.invokeAll(tasks);
-                while (true) {
-                    if (areTasksDone(resultList)) {
-                        break;
-                    }
+                List<Runnable> tasks = new ArrayList<>();
+                for (int client = 0; client < clients; client++) {
+                    Connection connection = connections.get(client);
+                    Runnable task = () -> {
+                        if (transactionCounter.get() < transactionCount) {
+                            updateCounter(transactionCounter);
+                            long executeTime = scriptService.executeScript(connection);
+                            updateExecutionTime(executionTime, executeTime);
+                            if (executeTime > (benchmark.getTransactionMaxExecutionTime())) {
+                                updateCounter(transactionsExceededMaxExecutionTime);
+                            }
+                        }
+                    };
+                    tasks.add(task);
                 }
 
-                log.info("Test is completed");
-
-                for (Future<Long> result : resultList) {
-                    long currentValue = result.get();
-                    totalExecutionTime += currentValue;
-                    if (currentValue > (benchmark.getTransactionMaxExecutionTime())) {
-                        transactionsExceededMaxExecutionTime++;
+                int tasksCount = 0;
+                int scriptExecutionCounter = 1;
+                while (transactionCounter.get() < transactions) {
+                    for (Runnable task : tasks) {
+                        if (transactionCounter.get() / 50000 == scriptExecutionCounter) {
+                            scriptExecutionCounter++;
+                            log.info("The current count of executed scripts {}", transactionCounter.get());
+                        }
+                        if ((tasksCount - ExecutorFactoryService.getMaximumTasksCount(clients)) <= transactionCounter.get()) {
+                            tasksCount++;
+                            executorService.execute(task);
+                        }
                     }
                 }
-            } catch (InterruptedException | ExecutionException e) {
-                log.error(e.getMessage());
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
             }
 
-            resultService.updateExecuteTime(resultId, totalExecutionTime);
-            resultService.updateTransactionsExceedMaxExecutionTime(resultId, transactionsExceededMaxExecutionTime);
+            executorFactoryService.closeExecutorService(executorService);
+
+            log.info("Test is completed");
+
+            resultService.updateExecuteTime(resultId, executionTime.get());
+            resultService.updateTransactionsExceedMaxExecutionTime(resultId, transactionsExceededMaxExecutionTime.get());
             resultService.saveResult(resultId, user);
 
             userService.deleteUser();
         }
-    }
-
-    private Callable<Long> createTask(Connection connection) {
-        return () -> scriptService.executeScript(connection);
-    }
-
-    private Map<Connection, Integer> createUserTransactions(List<Connection> connections,
-                                                            Integer transactionsPerUser) {
-        Map<Connection, Integer> userTransactions = new HashMap<>();
-        for (Connection connection : connections) {
-            userTransactions.put(connection, transactionsPerUser);
-        }
-        return userTransactions;
     }
 
     private long getLatency(int clients,
@@ -127,9 +110,24 @@ public class TransactionBenchmarkExecutionService implements BenchmarkExecutionS
         return totalLatencyTime;
     }
 
-    private boolean areTasksDone(List<Future<Long>> tasks) {
-        return tasks.stream()
-                .map(Future::isDone)
-                .reduce(true, (a, b) -> a && b);
+    private void updateCounter(AtomicInteger counter) {
+        while (true) {
+            int existingValue = counter.get();
+            int newValue = existingValue + 1;
+            if (counter.compareAndSet(existingValue, newValue)) {
+                return;
+            }
+        }
+    }
+
+    private void updateExecutionTime(AtomicLong time,
+                                     long transactionTime) {
+        while (true) {
+            long existingValue = time.get();
+            long newValue = existingValue + transactionTime;
+            if (time.compareAndSet(existingValue, newValue)) {
+                return;
+            }
+        }
     }
 }

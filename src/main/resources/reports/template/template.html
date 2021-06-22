@@ -6,26 +6,34 @@
 <script>
     isTimeMode = '{{mode}}' === 'TIME'
     rows = {{json reports}}
-    let zAxisText = isTimeMode ? 'time' : 'transactions';
+    let zText = isTimeMode ? 'time' : 'transactions';
+    let zAxisText = isTimeMode ? 'Time in seconds' : 'Transactions';
 
     function generatePlotlyData(yAxis, metricData, clientCount) {
         return {
             type: "scatter3d",
-            mode: "lines+markers",
+            mode: "lines+markers+text",
             x: clients,
             y: metricData,
             z: isTimeMode ? time : transactions,
             marker: {
-                size: 2,
-                sizemode: "area"
+                size: 10,
+                tickmode: "linear",
+                ticks: "outside"
             },
-            name: "Test with " + clientCount + " clients",
+            line: {
+                width: 8,
+                dash: "solid"
+            },
+            name: "Tests with " + clientCount + " clients",
             hoverinfo: "text",
             hovertemplate:
                 "clients: %{x}" +
                 "<br>" + yAxis + ": %{y}" +
                 "<br>" + zAxisText + ": %{z}" +
-                "<extra></extra>"
+                "<extra></extra>",
+            texttemplate: yAxis + ": %{y}",
+            textposition: "top right"
         }
     }
 
@@ -33,10 +41,32 @@
         return Plotly.newPlot(id, {
                 data: data,
                 layout: {
-                    title: title,
+                    title: {
+                        text: title,
+                        font: {
+                            size: 24
+                        },
+                        yanchor: "top",
+                        xanchor: "center",
+                        pad: {
+                            t: 60,
+                            b: 80,
+                            l: 0,
+                            r: 0
+                        }
+                    },
+                    legend: {
+                        itemsizing: "constant"
+                    },
                     autosize: true,
                     height: 760,
                     width: 1440,
+                    margin: {
+                        l: 0,
+                        r: 0,
+                        t: 40,
+                        b: 70
+                    },
                     scene: {
                         aspectratio: {
                             x: 1,
@@ -63,7 +93,7 @@
                         xaxis: {
                             type: 'linear',
                             zeroline: false,
-                            title: "clients"
+                            title: "Clients"
                         },
                         yaxis: {
                             type: 'linear',
@@ -77,7 +107,11 @@
                         }
                     }
                 },
-                config: {responsive: true}
+                config: {
+                    responsive: true,
+                    legend: false,
+                    displaylogo: false
+                }
             }
         );
     }
@@ -92,6 +126,8 @@
         dataTotalMemory.push(generatePlotlyData("memory", totalMemory, previousClientCount));
         dataSchemaLatency.push(generatePlotlyData("latency", performanceLatency, previousClientCount));
         dataTableScan.push(generatePlotlyData("table scans", tableScans, previousClientCount));
+        dataTmpTables.push(generatePlotlyData("count", tmpTables, previousClientCount));
+        dataTmpDiskTables.push(generatePlotlyData("count", tmpDiskTables, previousClientCount));
     }
 
     function clearArrays() {
@@ -107,6 +143,8 @@
         ios = [];
         ops = [];
         tableScans = [];
+        tmpTables = [];
+        tmpDiskTables = [];
     }
 
     let clients = [],
@@ -120,7 +158,9 @@
         totalMemory = [],
         performanceLatency = [],
         ops = [],
-        tableScans = [];
+        tableScans = [],
+        tmpTables = [],
+        tmpDiskTables = [];
 
     let dataTps = [],
         dataLatency = [],
@@ -130,7 +170,9 @@
         dataCurrentMemory = [],
         dataTotalMemory = [],
         dataSchemaLatency = [],
-        dataTableScan = [];
+        dataTableScan = [],
+        dataTmpTables = [],
+        dataTmpDiskTables = [];
 
     let previousClientCount = 0;
     for (let i = 0; i < rows.length; i++) {
@@ -158,6 +200,8 @@
         ios.push(performanceResult["ios"]);
         ops.push(performanceResult["ops"]);
         tableScans.push(performanceResult["tableScans"]);
+        tmpTables.push(performanceResult["temporaryTables"]);
+        tmpDiskTables.push(performanceResult["temporaryDiskTables"]);
     }
     processNewLine();
     clearArrays();
@@ -180,6 +224,21 @@
     </div>
 </div>
 <div id="performance_schema_results">
+    <div id='performance_schema_temporary_tables' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_temporary_tables', 'Database count of memory temporary tables graphic by Performance Schema', dataTmpTables, 'Table scans usage count');
+        </script>
+    </div>
+    <div id='performance_schema_temporary_disk_tables' class="plotly_graphic">
+        <script>
+            generatePlotly3DGraphic('performance_schema_temporary_disk_tables', 'Database count of internal disk temporary tables graphic by Performance Schema', dataTmpDiskTables, 'Table scans usage count');
+        </script>
+    </div>
+    <div id='performance_schema_no_index_usage' class="plotly_graphic">
+        <script>
+    generatePlotly3DGraphic('performance_schema_no_index_usage', 'Database table scan usage graphic by Performance Schema', dataTableScan, 'Table scans usage count');
+    </script>
+    </div>
     <div id='performance_schema_ops' class="plotly_graphic">
         <script>
             generatePlotly3DGraphic('performance_schema_ops', 'Database operations per second graphic by Performance Schema', dataOps, 'Statements per second');
@@ -203,11 +262,6 @@
     <div id='performance_schema_latency' class="plotly_graphic">
         <script>
             generatePlotly3DGraphic('performance_schema_latency', 'Database latency graphic by Performance Schema', dataSchemaLatency, 'Latency in ms');
-        </script>
-    </div>
-    <div id='performance_schema_no_index_usage' class="plotly_graphic">
-        <script>
-            generatePlotly3DGraphic('performance_schema_no_index_usage', 'Database table scan usage graphic by Performance Schema', dataTableScan, 'Table scans usage count');
         </script>
     </div>
 </div>

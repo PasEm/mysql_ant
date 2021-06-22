@@ -41,14 +41,11 @@ public class UserRepository {
             grantUserRights.setString(1, user.getName());
             grantUserRights.setString(2, configuration.getHost());
 
-            createUser.addBatch();
-            grantUserRights.addBatch();
-
             log.info("Create new test user {} in the DataBase", user.getName());
-            createUser.executeBatch();
+            createUser.execute();
 
-            log.info("Grants needed rights new users");
-            grantUserRights.executeBatch();
+            log.info("Grants needed rights new user");
+            grantUserRights.execute();
             connection.commit();
         } catch (SQLException ex) {
             log.error("Cannot create users in the DataBase");

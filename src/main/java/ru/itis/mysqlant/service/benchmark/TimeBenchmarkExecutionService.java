@@ -37,16 +37,16 @@ public class TimeBenchmarkExecutionService implements BenchmarkExecutionService 
     @Override
     public void executeIntegrationTest(int clients) {
         for (long duration = benchmark.getDuration();
-             duration <= benchmark.getDuration();
+             duration <= benchmark.getDurationMax();
              duration = ParameterUtil.getNextStepValue(
                      duration,
                      benchmark.getDurationStep(),
                      benchmark.getDurationMax()
              )
         ) {
-            log.info("Create new test with {} clients, {} time execution in seconds", clients, TimeUtil.getSecondsFromNanoseconds(duration));
+            log.info("Create new test with {} clients, {} seconds", clients, TimeUtil.getSecondsFromNanoseconds(duration));
             User user = userService.createUser();
-            ExecutorService executorService = executorFactoryService.createExecutorService(Runtime.getRuntime().availableProcessors());
+            ExecutorService executorService = executorFactoryService.createExecutorService(clients);
             List<Connection> connections = new ArrayList<>();
             long latencyTime = getLatency(clients, connections);
 
@@ -75,9 +75,15 @@ public class TimeBenchmarkExecutionService implements BenchmarkExecutionService 
                 };
                 tasks.add(task);
             }
+
+            int tasksCount = 0;
             while (isRunning.get()) {
                 for (Runnable task : tasks) {
                     executorService.execute(task);
+                    if ((tasksCount - ExecutorFactoryService.getMaximumTasksCount(clients)) <= totalTransactionCount.get()) {
+                        tasksCount++;
+                        executorService.execute(task);
+                    }
                 }
             }
             executorFactoryService.closeExecutorService(executorService);

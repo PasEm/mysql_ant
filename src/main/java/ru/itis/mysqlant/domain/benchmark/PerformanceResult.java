@@ -7,7 +7,7 @@ import lombok.Getter;
 @Getter
 public class PerformanceResult {
 
-    private final long tableScans;
+    private final String tableScans;
 
     private final String latency;
 
@@ -18,4 +18,8 @@ public class PerformanceResult {
     private final String currentMemory;
 
     private final String totalMemory;
+
+    private final String temporaryTables;
+
+    private final String temporaryDiskTables;
 }

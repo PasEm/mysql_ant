@@ -31,11 +31,11 @@ public class TimeUtil {
     }
 
     public static long getMilliseconds(double picoseconds) {
-        return Math.round(picoseconds / 10e9);
+        return Math.round(picoseconds / 1_000_000_000);
     }
 
     public static long getSecondsFromNanoseconds(double nanoseconds) {
-        return Math.round(nanoseconds / 10e9);
+        return Math.round(nanoseconds / 1_000_000_000);
     }
 
     public static long getNanosecondsFromSeconds(long seconds) {

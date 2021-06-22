@@ -22,4 +22,8 @@ public class PerformanceSummary {
     private final long currentMemory;
 
     private final long totalMemory;
+
+    private final long temporaryTables;
+
+    private final long temporaryDiskTables;
 }

@@ -75,8 +75,12 @@ public class UserService {
     }
 
     private HikariDataSource createUserDataSource(int connections) {
+        String url = mySQLConf.getUrl().contains("?") ?
+                mySQLConf.getUrl().concat("&allowMultiQueries=true") :
+                mySQLConf.getUrl().concat("?allowMultiQueries=true");
+
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(mySQLConf.getUrl());
+        config.setJdbcUrl(url);
         config.setUsername(user.getName());
         config.setPassword(user.getPassword());
         config.setDriverClassName(mySQLConf.getDriverName());

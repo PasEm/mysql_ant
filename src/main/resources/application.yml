@@ -1,18 +1,14 @@
 benchmark:
   client:
-    count: 5
-    max: 5
+    count: 30
+    max: 30
     step: 5
   transaction:
     count: 10000
     max: 10000
-    step: 30000
-  time:
-    count: 10
-    max: 10
-    step: 10
+    step: 50000
   execution:
-    maxTime: 10000
+    maxTime: 600
     timeout: 300
     parallel: true
   script:

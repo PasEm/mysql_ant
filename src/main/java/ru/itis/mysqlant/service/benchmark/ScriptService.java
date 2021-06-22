@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import ru.itis.mysqlant.configuration.BenchmarkConfiguration;
 import ru.itis.mysqlant.repository.BenchmarkRepository;
@@ -18,16 +20,17 @@ import lombok.extern.slf4j.Slf4j;
 public class ScriptService {
 
     private final BenchmarkConfiguration configuration;
-    private final BenchmarkRepository repository;
 
-    private final String SQL_SCRIPT;
+    private final BenchmarkRepository benchmarkRepository;
+
+    private final String sqlScript;
 
     public ScriptService(BenchmarkConfiguration configuration,
                          ScriptUtil scriptUtil,
-                         BenchmarkRepository repository) {
+                         BenchmarkRepository benchmarkRepository) {
         this.configuration = configuration;
-        this.repository = repository;
-        this.SQL_SCRIPT = scriptUtil.loadSQLScript();
+        this.benchmarkRepository = benchmarkRepository;
+        this.sqlScript = scriptUtil.loadSQLScript();
     }
 
     public long executeScript(Connection connection) {
@@ -36,12 +39,18 @@ public class ScriptService {
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(configuration.getTimeoutValue());
             long startExecuteTime = System.nanoTime();
-            repository.executeScript(statement, SQL_SCRIPT);
+            benchmarkRepository.executeScript(statement, sqlScript);
             connection.commit();
             scriptExecuteTime = System.nanoTime() - startExecuteTime;
         } catch (SQLException ex) {
             log.error(Arrays.toString(ex.getStackTrace()));
         }
         return scriptExecuteTime;
+    }
+
+    public List<String> getDigestListBySQLStatements() {
+        List<String> statements = Arrays.stream(sqlScript.split(";"))
+                .collect(Collectors.toList());
+        return benchmarkRepository.getStatementDigest(statements);
     }
 }

@@ -9,11 +9,11 @@ import lombok.Getter;
 @Getter
 public class Report {
 
-    private final int clients;
+    private final String clients;
 
-    private final int transactions;
+    private final String transactions;
 
-    private final int transactionsExceededMaxExecuteTime;
+    private final String transactionsExceededMaxExecuteTime;
 
     private final String tps;
 

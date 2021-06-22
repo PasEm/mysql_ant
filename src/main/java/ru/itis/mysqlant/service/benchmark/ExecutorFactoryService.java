@@ -2,6 +2,8 @@ package ru.itis.mysqlant.service.benchmark;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import ru.itis.mysqlant.configuration.BenchmarkConfiguration;
@@ -48,5 +50,17 @@ public class ExecutorFactoryService {
                 executorService.shutdownNow();
             }
         }
+    }
+
+    public static int getMaximumTasksCount(int threads) {
+        if (threads > 15) {
+            return threads + Runtime.getRuntime().availableProcessors();
+        }
+
+        if (Runtime.getRuntime().availableProcessors() > 15) {
+            return Runtime.getRuntime().availableProcessors();
+        }
+
+        return 20;
     }
 }
